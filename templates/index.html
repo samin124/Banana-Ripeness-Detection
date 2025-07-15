@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>🍌 Banana Ripeness Detector</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <!-- Chart.js & Data Labels plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+</head>
+<body>
+    <div class="main-card">
+        <h1>🍌 Banana Ripeness Detector</h1>
+        <p>Upload a banana image to classify its ripeness level.</p>
+
+        <form method="POST" enctype="multipart/form-data">
+            <input type="file" name="file" id="fileInput" required>
+            <button type="submit">🔍 Predict</button>
+        </form>
+
+        {% if filename %}
+        <div class="result-card">
+            <h3>🖼️ Uploaded Image</h3>
+            <img src="{{ url_for('static', filename='uploads/' + filename) }}" class="banana-image">
+        </div>
+        {% endif %}
+
+        {% if prediction %}
+        <div class="prediction-card">
+            <h2>🍯 Prediction:</h2>
+            <p>{{ prediction }}</p>
+        </div>
+
+        <div class="chart-container">
+            <h3>📊 Confidence per Class</h3>
+            <canvas id="probabilityChart" width="400" height="300"></canvas>
+        </div>
+
+        <script>
+            const ctx = document.getElementById('probabilityChart').getContext('2d');
+            const labels = {{ class_names | tojson }};
+            const values = {{ probabilities | tojson }};
+            const maxValue = Math.max(...values);
+
+            const chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Confidence (%)',
+                        data: values,
+                        backgroundColor: values.map(v => v === maxValue ? '#2ecc71' : '#f39c12'),
+                        borderColor: '#d35400',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Ripeness Prediction Confidence',
+                            font: {
+                                size: 18
+                            }
+                        },
+                        legend: {
+                            display: false
+                        },
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'top',
+                            font: {
+                                weight: 'bold',
+                                size: 14
+                            },
+                            formatter: function(value) {
+                                return value + '%';
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y + '%';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Confidence (%)',
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Ripeness Class',
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
+        </script>
+        {% endif %}
+    </div>
+</body>
+</html>

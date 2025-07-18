@@ -6,12 +6,16 @@ import os
 
 app = Flask(__name__)
 
-# Load your model
-model = load_model("banana_ripeness_model_finetuned.h5")
+# Load your model safely
+try:
+    model = load_model("banana_ripeness_model_finetuned.h5")
+except Exception as e:
+    print("Error loading model:", e)
+    model = None
 
 # Folder to store uploaded images
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
-
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Ensure folder exists
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Class labels
@@ -24,27 +28,30 @@ def index():
     probabilities = []
 
     if request.method == 'POST':
-        file = request.files['file']
+        file = request.files.get('file')
         if file:
             filename = file.filename
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)  # Ensure folder exists at runtime
             file.save(filepath)
 
-            # Preprocess the image
-            img = image.load_img(filepath, target_size=(224, 224))
-            img_array = image.img_to_array(img) / 255.0
-            img_array = np.expand_dims(img_array, axis=0)
+            try:
+                # Preprocess the image
+                img = image.load_img(filepath, target_size=(224, 224))
+                img_array = image.img_to_array(img) / 255.0
+                img_array = np.expand_dims(img_array, axis=0)
 
-            # Predict
-            preds = model.predict(img_array)[0]
+                # Predict
+                preds = model.predict(img_array)[0]
 
-            # Convert to list of native Python floats for JSON serialization
-            probabilities = list(map(lambda x: float(round(x * 100, 2)), preds.tolist()))
-
-            # Get top prediction
-            predicted_class = class_names[np.argmax(preds)]
-            confidence = round(np.max(preds) * 100, 2)
-            prediction = f"{predicted_class} (Confidence: {confidence}%)"
+                # Convert to Python floats
+                probabilities = [round(float(x) * 100, 2) for x in preds]
+                predicted_class = class_names[np.argmax(preds)]
+                confidence = round(np.max(preds) * 100, 2)
+                prediction = f"{predicted_class} (Confidence: {confidence}%)"
+            except Exception as e:
+                prediction = "Prediction failed"
+                print("Error during prediction:", e)
 
     return render_template(
         'index.html',
